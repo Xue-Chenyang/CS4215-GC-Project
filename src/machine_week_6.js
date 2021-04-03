@@ -1,19 +1,14 @@
 /* 
-
 Virtual machine for language Source §1-
-
 using virtual machine SVML1, Lecture Week 5 of CS4215
-
 Instructions: press "Run" to evaluate an example expression
               (scroll down and un-comment one example)
               
 The language Source §1- is defined as follows:
-
 stmt    ::= expr ;
          |  const x = expr ;
          |  return expr ;
          |  stmt stmt ;
-
 expr    ::= number
          |  true | false
          |  expr ? expr : expr
@@ -757,6 +752,8 @@ let K = 0;
 let L = 0;
 let N = 0;
 let O = 0;
+let Q = 0;
+let R = 0;
 
 function show_executing(s) {
     display("", "--- RUN ---" + s);
@@ -847,22 +844,24 @@ function already_copied(idx) {
 }
 
 function copy(idx) {
+    // display(idx);
     already_copied(idx);
     //display(stringify(idx) + "  " + stringify(RES));
     if (RES) {
         RES = HEAP[idx + FORWARDING_ADDRESS];
     } else {
-        D = FREE;
+        R = FREE;
         move(idx, FREE);
         FREE = FREE + HEAP[idx + SIZE_SLOT];
-        HEAP[idx + FORWARDING_ADDRESS] = D;
-        RES = D;
+        HEAP[idx + FORWARDING_ADDRESS] = R;
+        RES = R;
     }
+    // display("Free is " + stringify(FREE));
 }
 
 function flip() {
     display("flipping!");
-    //show_heap("before");
+    // show_heap("before");
     //show_registers("before");
     K = TO_SPACE;
     TO_SPACE = FROM_SPACE;
@@ -880,6 +879,7 @@ function flip() {
         copy(RTS[O]); RTS[O] = RES;
     }
     I = TO_SPACE;
+    // show_heap("Medium");
     while (I < FREE) {
         for (O = HEAP[I + FIRST_CHILD_SLOT]; O <= HEAP[I + LAST_CHILD_SLOT]; O = O + 1) {
             // display("I is " + stringify(I));
@@ -890,28 +890,25 @@ function flip() {
         I = I + HEAP[I + SIZE_SLOT];
     }
     display("Flip finished!");
-    //display("FREE is " + stringify(FREE));
-    //show_heap("after");
-    //show_registers("after");
 }
 
 // NEW expects tag in A and size in B
 // changes A, B, C, D, J, K
 function NEW() {
     J = A;
-    K = B;
-    if (FREE + K > TOP_OF_SPACE) {
+    Q = B;
+    if (FREE + Q > TOP_OF_SPACE) {
         flip();
     } else {}
-    if (FREE + K > TOP_OF_SPACE) {
+    if (FREE + Q > TOP_OF_SPACE) {
        STATE = OUT_OF_MEMORY_ERROR;
        display("OUT_OF_MEMORY_ERROR");
        RUNNING = false;
 	} else {}
     HEAP[FREE + TAG_SLOT] = J;
-    HEAP[FREE + SIZE_SLOT] = K;
+    HEAP[FREE + SIZE_SLOT] = Q;
     RES = FREE;
-    FREE = FREE + K;
+    FREE = FREE + Q;
 }
 
 // machine states                 
@@ -1457,4 +1454,11 @@ function run() {
     }
 }
 
-
+initialize_machine(240);
+P = parse_and_compile("         \
+function factorial(n) {         \
+    return n === 1 ? 1          \
+        : n * factorial(n - 1); \
+}                               \
+factorial(3);                   ");
+run();
