@@ -829,6 +829,7 @@ function initialize_machine(heapsize) {
         RUNNING = false;
     } else {
         display(heapsize, "\nRunning VM with heap size:");
+        // TODO: create heap with size: heapsize, and fixed node size: NODE_SIZE, trim out the remaining unusable cells
         HEAP = [];
         HEAP_SIZE = heapsize;
         FREE = 0;
@@ -849,91 +850,69 @@ function initialize_machine(heapsize) {
     }
 }
 
-function MARK(addr) {
-    if (HEAP[addr + MARK_SLOT] === UNMARKED) {
-        HEAP[addr + MARK_SLOT] = MARKED;
-        for (let ptr = HEAP[addr + FIRST_CHILD_SLOT]; ptr <= HEAP[addr + LAST_CHILD_SLOT]; ptr = ptr + 1) {
-            MARK(HEAP[addr + ptr]);
-        }
-    } else {}
-}
-
-function SWEEP() {
-    FREE = HEAP_SIZE;
-    LAST_FREE = -Infinity;
-    for (R = 0; R <= HEAP_BOTTOM; R = R + NODE_SIZE) {
-        if (HEAP[R + MARK_SLOT] === UNMARKED) {
-            if (LAST_FREE >= 0) {
-                HEAP[LAST_FREE + NEXT_SLOT] = R;
-            } else {
-                FREE = R;
-            }
-            LAST_FREE = R;
-        } else {}
-    }
-    if (LAST_FREE >= 0) {
-        HEAP[LAST_FREE + NEXT_SLOT] = HEAP_SIZE;
-    } else {}
-}
-
-let GC_COUNT = 0;
-
-// function MARK_SWEEP() {
-//     for (R = 0; R <= HEAP_BOTTOM; R = R + NODE_SIZE) {
-//         HEAP[R + MARK_SLOT] = UNMARKED;
-//     }
-//     MARK(OS); MARK(ENV);
-//     for (R = 0; R <= TOP_RTS; R = R+1) {
-//         MARK(RTS[R]);
-//     }
-//     SWEEP();
-// }
-
+// TODO: Just a suggestion, my implementation uses a queue-like array to simulate BFS, maybe you want to visualize that as well
 function MARK_SWEEP() {
-    GC_COUNT = GC_COUNT + 1;
-    display("Commiting GC " + stringify(GC_COUNT) + " .......................");
-    // display("OS is " + stringify(OS));
-    // show_heap("Before GC");
+    // Initialize every node as UNMARKED
     for (R = 0; R <= HEAP_BOTTOM; R = R + NODE_SIZE) {
         HEAP[R + MARK_SLOT] = UNMARKED;
     }
+    // TODO: can display HEAP here in one step to show that every node is now UNMARKED
+    // TODO: the modified cells would be R + MARK_SLOT where R is the starting address of each node
+
+    // To mark the roots
     QUEUE = [OS, ENV]; HEAP[OS + MARK_SLOT] = MARKED; HEAP[ENV + MARK_SLOT] = MARKED;
+    // TODO: Modified OS + MARK_SLOT, ENV + MARK_SLOT
     QUEUE_SIZE = 2;
+
+    // To address the case that TEMP_ROOT contains live root
     if (TEMP_ROOT >= 0) {
         QUEUE[QUEUE_SIZE] = TEMP_ROOT;
         HEAP[TEMP_ROOT + MARK_SLOT] = MARKED;
+        // TODO: Modified TEMP_ROOT + MARK_SLOT 
         QUEUE_SIZE = QUEUE_SIZE + 1;
     } else {}
+
+    // MARK the RTS NODES
     for (R = 0; R <= TOP_RTS; R = R + 1) {
         QUEUE[QUEUE_SIZE] = RTS[R];
         HEAP[RTS[R] + MARK_SLOT] = MARKED;
+        // TODO: Modified RTS[R] + MARK_SLOT
         QUEUE_SIZE = QUEUE_SIZE + 1;
     }
+
+    // Performing BFS
     for (R = 0; R < QUEUE_SIZE; R = R + 1) {
+        // Going through the children of node QUEUE[R]
         T = QUEUE[R];
         for (S = HEAP[T + FIRST_CHILD_SLOT]; S <= HEAP[T + LAST_CHILD_SLOT]; S = S + 1) {
             if (HEAP[HEAP[T + S] + MARK_SLOT] === UNMARKED) {
                 HEAP[HEAP[T + S] + MARK_SLOT] = MARKED;
+                // TODO: Modified HEAP[T + S] + MARK_SLOT
                 QUEUE[QUEUE_SIZE] = HEAP[T + S];
                 QUEUE_SIZE = QUEUE_SIZE + 1;
             } else {}
         }
     }
+
+    // SWEEP the HEAP, erase dead nodes
     FREE = HEAP_SIZE;
     LAST_FREE = -Infinity;
     for (R = 0; R <= HEAP_BOTTOM; R = R + NODE_SIZE) {
         if (HEAP[R + MARK_SLOT] === UNMARKED) {
             for (S = R; S < R + NODE_SIZE; S = S + 1) {HEAP[S] = undefined;}
+            // TODO: Set the entire node starting at R as undefined
             if (LAST_FREE === -Infinity) {
                 FREE = R;
             } else {
                 HEAP[LAST_FREE + NEXT_SLOT] = R;
+                // TODO: Modified LAST_FREE + NEXT_SLOT to complete the linked list
             }
             LAST_FREE = R;
         } else {}
     }
     if (LAST_FREE >= 0) {
         HEAP[LAST_FREE] = HEAP_SIZE;
+        // TODO: Modified LAST_FREE to signal end of linked list
     } else {}
     // show_heap("After ================================");
     // show_registers("");
@@ -947,11 +926,6 @@ let MAX_NODES = 0;
 function NEW() {
     //display("Free is " + stringify(FREE));  
     J = A;
-    // MAX_NODES = MAX_NODES + 1;
-    // display("Creating " + stringify(MAX_NODES) + "th node of kind " + node_kind(A));
-    // show_executing("");
-    // K = B;    
-    // show_executing("L");
     if (FREE > HEAP_BOTTOM) {
        MARK_SWEEP();
 	} else {}
@@ -963,6 +937,7 @@ function NEW() {
         // display(stringify(FREE) + " " + stringify(K));
         HEAP[FREE + TAG_SLOT] = J;
         HEAP[FREE + MARK_SLOT] = UNMARKED;
+        // TODO: Allocated the entire node starting at FREE, Modified FREE + TAG_SLOT and FREE + MARK_SLOT
         RES = FREE;
         FREE = K;
 	}
@@ -1077,8 +1052,7 @@ function PUSH_OS() {
     B = B + 1; 
     HEAP[OS + LAST_CHILD_SLOT] = B; // update address of current top of OS
     HEAP[OS + B] = A;
-    // show_registers("-----------------------------");
-    // show_heap("!!!!!!!!!!!!!!!!!!!!!!!!!");
+    // TODO: Modified OS + LAST_CHILD_SLOT And OS + B
 }
 
 // POP puts the top-most value into RES
@@ -1088,6 +1062,7 @@ function POP_OS() {
     HEAP[OS + LAST_CHILD_SLOT] = B - 1; // update address of current top of OS
     RES = HEAP[OS + B];
     HEAP[OS + B] = undefined;
+    // TODO: Modified OS + LAST_CHILD_SLOT And OS + B
 }
 
 // closure nodes layout
@@ -1429,6 +1404,7 @@ M[POP] = () =>     { POP_OS();
 M[ASSIGN] = () =>  { POP_OS();
                      HEAP[ENV + HEAP[ENV + FIRST_CHILD_SLOT] 
                               + P[PC + 1]] = RES;
+                    // TODO: Modified ENV + HEAP[ENV + FIRST_CHILD_SLOT] + P[PC + 1]
                      PC = PC + 2;
                    };
                    
